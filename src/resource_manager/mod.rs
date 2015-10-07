@@ -1,3 +1,5 @@
+pub mod sof;
+
 use std::sync::Arc;
 
 use std::thread;
@@ -9,6 +11,7 @@ use hyper::mime::Mime;
 
 use eventual::Future;
 
+use resource_loaders;
 use resource_loaders::ResourceLoader;
 
 #[derive(Debug)]
@@ -26,6 +29,14 @@ impl ResourceManager {
     return ResourceManager {
       loaders: HashMap::new()
     };
+  }
+
+  pub fn default() -> Arc<ResourceManager> {
+    let mut resource_manager = ResourceManager::new();
+
+    resource_manager.insert("res", Box::new(resource_loaders::cdn::Loader::default()));
+
+    return Arc::new(resource_manager);
   }
 
   pub fn insert(&mut self, k: &'static str, loader: Box<ResourceLoader>) {

@@ -27,6 +27,10 @@ impl Loader {
     };
   }
 
+  pub fn default() -> Loader {
+    return Loader::new("http://developers.eveonline.com/ccpwgl/assetpath/967762", ".cache");
+  }
+
   fn load_from_cache(&self, path: &str) -> Option<(Mime, Vec<u8>)> {
     let file = self.cache_dir.clone() + path;
 
