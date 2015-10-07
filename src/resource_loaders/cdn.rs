@@ -6,7 +6,6 @@ use std::io::{BufRead, Read, Write};
 use std::path;
 
 use hyper;
-use hyper::mime::Mime;
 
 use resource_loaders;
 
@@ -31,31 +30,39 @@ impl Loader {
     return Loader::new("http://developers.eveonline.com/ccpwgl/assetpath/967762", ".cache");
   }
 
-  fn load_from_cache(&self, path: &str) -> Option<(Mime, Vec<u8>)> {
+  fn load_from_cache(&self, path: &str) -> Option<(String, Vec<u8>)> {
     let file = self.cache_dir.clone() + path;
 
     let mut f = match fs::File::open(file) {
       Ok(f) => io::BufReader::new(f), _ => return None
     };
 
-    let mut mime_string = String::new();
-    f.read_line(&mut mime_string).unwrap();
-    let mime = mime_string.parse().unwrap();
+    let mut mime = String::new();
+    f.read_line(&mut mime).unwrap();
 
-    return Some((mime, load_from_stream(&mut f)));
+    return Some((mime.trim().to_owned(), load_from_stream(&mut f)));
   }
 
-  fn load_from_cdn(&self, path: &str) -> Option<(Mime, Vec<u8>)> {
+  fn load_from_cdn(&self, path: &str) -> Option<(String, Vec<u8>)> {
     let url = self.prefix.clone() + path;
 
     let mut response = match self.client.get(&url).send() {
       Ok(r) => r, _ => return None
     };
 
-    let headers = response.headers.clone();
-    let mime = match headers.get::<hyper::header::ContentType>() {
-      Some(&hyper::header::ContentType(ref s)) => s.clone(),
-      None => "application/octet-stream".parse().unwrap()
+    let extension = path::Path::new(path).extension().map(|x| x.to_str().unwrap()).unwrap_or("");
+
+    let mime = match extension {
+      "wbg" => "application/x-ccp-wbg".to_owned(),
+      "red" => "application/x-ccp-red".to_owned(),
+      _ => {
+        let headers = response.headers.clone();
+
+        match headers.get::<hyper::header::ContentType>() {
+          Some(&hyper::header::ContentType(ref s)) => s.clone(),
+          None => "application/octet-stream".parse().unwrap()
+        }.to_string()
+      }
     };
 
     let data = load_from_stream(&mut response);
@@ -72,7 +79,7 @@ impl Loader {
 }
 
 impl resource_loaders::ResourceLoader for Loader {
-  fn load(&self, path: &str) -> Option<(Mime, Vec<u8>)> {
+  fn load(&self, path: &str) -> Option<(String, Vec<u8>)> {
     let result = self.load_from_cache(path);
 
     return match result {
@@ -90,7 +97,7 @@ fn load_from_stream(read: &mut Read) -> Vec<u8> {
   return body;
 }
 
-fn write_to_stream(write: &mut Write, mime: &Mime, data: &Vec<u8>) {
+fn write_to_stream(write: &mut Write, mime: &String, data: &Vec<u8>) {
   write.write_all(format!("{}\n", mime).as_bytes()).unwrap();
   write.write_all(data.as_slice()).unwrap();
 }

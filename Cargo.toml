@@ -10,6 +10,7 @@ name = "eve-toolbox"
 xml-rs = "*"
 getopts = "*"
 eventual = "*"
+byteorder = "*"
 rustc-serialize = "*"
 
 [dependencies.hyper]

@@ -6,10 +6,9 @@ use std::thread;
 
 use std::collections::HashMap;
 
-use hyper::mime;
-use hyper::mime::Mime;
-
 use eventual::Future;
+
+use mesh;
 
 use resource_loaders;
 use resource_loaders::ResourceLoader;
@@ -17,7 +16,8 @@ use resource_loaders::ResourceLoader;
 #[derive(Debug)]
 pub enum Resource {
   Binary(Vec<u8>),
-  Text(String)
+  Text(String),
+  Mesh(mesh::Mesh)
 }
 
 pub struct ResourceManager {
@@ -99,10 +99,15 @@ impl ResourceManager {
   }
 }
 
-fn to_resource(raw: Option<(Mime, Vec<u8>)>) -> Option<Arc<Resource>> {
+// TODO: Make this pluggable
+fn to_resource(raw: Option<(String, Vec<u8>)>) -> Option<Arc<Resource>> {
   if let Some((mime, data)) = raw {
-    let result = match mime {
-      Mime(mime::TopLevel::Text, _, _) => Resource::Text(String::from_utf8(data).unwrap()),
+    let result = match mime.as_str() {
+      "application/octet-stream" => Resource::Binary(data),
+      "text/xml" => Resource::Text(String::from_utf8(data).unwrap()),
+      "text/html" => Resource::Text(String::from_utf8(data).unwrap()),
+      "application/x-ccp-red" => Resource::Binary(data),
+      "application/x-ccp-wbg" => Resource::Mesh(mesh::wbg::load(data).unwrap()),
       _ => {
         println!("Unknown MIME {:?}, interpreting as Binary", mime);
         Resource::Binary(data)

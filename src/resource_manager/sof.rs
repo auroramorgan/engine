@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+
 use std::io;
 
 use std::sync::Arc;
@@ -34,6 +36,12 @@ pub struct Hull {
   geometryResFilePath: String
 }
 
+impl Hull {
+  pub fn geometry_path(&self) -> &str {
+    return self.geometryResFilePath.as_str();
+  }
+}
+
 pub struct Manager {
   data: SofData
 }
@@ -45,8 +53,8 @@ impl Manager {
     let data = manager.load(SOF_PATH).unwrap();
 
     let string = match *data {
-      resource_manager::Resource::Text(ref s) => s.clone().into_bytes(),
-      resource_manager::Resource::Binary(ref s) => s.clone()
+      resource_manager::Resource::Binary(ref s) => s.clone(),
+      _ => panic!("Silly input!")
     };
 
     let mut json = String::new();
