@@ -3,9 +3,10 @@ use std::io::{Cursor, Read};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 
 use mesh;
-use mesh::{VertexFormat, VertexAttribute, VertexBuffer, IndexFormat, IndexBuffer, GeometryType, Name};
+use index;
+use vertex;
 
-pub fn load(input: Vec<u8>) -> Option<mesh::Mesh> {
+pub fn import(input: Vec<u8>) -> Option<mesh::Mesh> {
   let mut cursor = Cursor::new(input);
 
   assert_eq!(cursor.read_u8().unwrap(), 0); // File version
@@ -19,18 +20,19 @@ fn read_mesh(cursor: &mut Read) -> Option<mesh::Mesh> {
   let mut name = String::new();
   cursor.take(name_length as u64).read_to_string(&mut name).unwrap();
 
-  let (vertex_count, attributes, vertex_buffer) = read_vertex_buffer(cursor);
+  let (vertex_count, descriptor, vertex_buffer) = read_vertex_buffer(cursor);
   let index_buffer = read_index_buffer(cursor);
 
   return Some(mesh::Mesh {
+    name: String::new(),
     vertex_count: vertex_count,
-    attributes: attributes,
+    descriptor: descriptor,
     buffers: vec![vertex_buffer],
     submeshes: vec![index_buffer]
   });
 }
 
-fn read_vertex_buffer(cursor: &mut Read) -> (usize, Vec<VertexAttribute>, VertexBuffer) {
+fn read_vertex_buffer(cursor: &mut Read) -> (usize, vertex::Descriptor, Vec<u8>) {
   let decl_length = cursor.read_u8().unwrap();
 
   let mut vertex_size = 0usize;
@@ -46,18 +48,18 @@ fn read_vertex_buffer(cursor: &mut Read) -> (usize, Vec<VertexAttribute>, Vertex
     let offset = vertex_size;
 
     let ty = match file_type & 0x0F {
-      0 => VertexFormat::i8,
-      1 => VertexFormat::i16,
-      2 => VertexFormat::i32,
-      3 => VertexFormat::f16,
-      4 => VertexFormat::f32,
-      8 => VertexFormat::u8,
-      9 => VertexFormat::u16,
-      10 => VertexFormat::u32,
-      16 => VertexFormat::i8_normalized,
-      17 => VertexFormat::i16_normalized,
-      24 => VertexFormat::u8_normalized,
-      25 => VertexFormat::u16_normalized,
+      0 => vertex::Format::i8,
+      1 => vertex::Format::i16,
+      2 => vertex::Format::i32,
+      3 => vertex::Format::f16,
+      4 => vertex::Format::f32,
+      8 => vertex::Format::u8,
+      9 => vertex::Format::u16,
+      10 => vertex::Format::u32,
+      16 => vertex::Format::i8_normalized,
+      17 => vertex::Format::i16_normalized,
+      24 => vertex::Format::u8_normalized,
+      25 => vertex::Format::u16_normalized,
       
       _ => panic!("Unknown ty in .wbg")
     };
@@ -65,18 +67,18 @@ fn read_vertex_buffer(cursor: &mut Read) -> (usize, Vec<VertexAttribute>, Vertex
     vertex_size += ty.byte_size() * (elements as usize);
 
     let name = match usage {
-      0 => Name::Position,
-      1 => Name::Color,
-      2 => Name::Normal,
-      3 => Name::Tangent,
-      4 => Name::Binormal,
-      5 => Name::TextureCoordinate,
-      6 => Name::JointWeights,
-      7 => Name::JointIndices,
+      0 => vertex::AttributeName::Position,
+      1 => vertex::AttributeName::Color,
+      2 => vertex::AttributeName::Normal,
+      3 => vertex::AttributeName::Tangent,
+      4 => vertex::AttributeName::Binormal,
+      5 => vertex::AttributeName::TextureCoordinate,
+      6 => vertex::AttributeName::JointWeights,
+      7 => vertex::AttributeName::JointIndices,
       _ => panic!("Unknown name in .wbg")
     };
 
-    let vertex_attribute = VertexAttribute {
+    let vertex_attribute = vertex::Attribute {
       name: name,
       offset: offset as usize,
       buffer_index: 0,
@@ -93,7 +95,7 @@ fn read_vertex_buffer(cursor: &mut Read) -> (usize, Vec<VertexAttribute>, Vertex
     for decl in &vertex_attributes {
       for _ in 0 .. decl.elements {
         match decl.ty {
-          VertexFormat::i16 | VertexFormat::f16 => {
+          vertex::Format::i16 | vertex::Format::f16 => {
             let value = cursor.read_i16::<LittleEndian>().unwrap();
             buffer.write_i16::<LittleEndian>(value).unwrap();
           }
@@ -103,18 +105,18 @@ fn read_vertex_buffer(cursor: &mut Read) -> (usize, Vec<VertexAttribute>, Vertex
     }
   }
 
-  let vertex_buffer = VertexBuffer {
-    stride: vertex_size,
-    buffer: buffer.into_inner()
+  let vertex_descriptor = vertex::Descriptor {
+    attributes: vertex_attributes,
+    layouts: vec![vertex::BufferLayout { stride: vertex_size }]
   };
 
-  return (vertex_count, vertex_attributes, vertex_buffer);
+  return (vertex_count, vertex_descriptor, buffer.into_inner());
 }
 
-fn read_index_buffer(cursor: &mut Read) -> IndexBuffer {
+fn read_index_buffer(cursor: &mut Read) -> mesh::Submesh {
   let ty = match cursor.read_u8().unwrap() {
-    0 => IndexFormat::u16,
-    1 => IndexFormat::u32,
+    0 => index::Format::u16,
+    1 => index::Format::u32,
     _ => panic!("Unknown ty in .wbg")
   };
 
@@ -123,11 +125,11 @@ fn read_index_buffer(cursor: &mut Read) -> IndexBuffer {
 
   for _ in 0 .. index_count {
     match ty {
-      IndexFormat::u16 => {
+      index::Format::u16 => {
         let value = cursor.read_u16::<LittleEndian>().unwrap();
         index_buffer.write_u16::<LittleEndian>(value).unwrap();
       }
-      IndexFormat::u32 => {
+      index::Format::u32 => {
         let value = cursor.read_u32::<LittleEndian>().unwrap();
         index_buffer.write_u32::<LittleEndian>(value).unwrap();
       }
@@ -135,10 +137,11 @@ fn read_index_buffer(cursor: &mut Read) -> IndexBuffer {
     }
   }
 
-  return IndexBuffer {
-    count: index_count as usize,
-    ty: ty,
-    geometry: GeometryType::Triangles,
+  return mesh::Submesh {
+    name: String::new(),
+    index_count: index_count as usize,
+    index_format: ty,
+    geometry: index::Geometry::Triangles,
     buffer: index_buffer.into_inner()
   }
 }

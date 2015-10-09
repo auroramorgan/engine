@@ -4,6 +4,8 @@ use std::cmp;
 use byteorder::{LittleEndian, ReadBytesExt};
 
 use mesh;
+use index;
+use vertex;
 
 extern {
   /// The `llvm.convert.from.fp16.f64` intrinsic.
@@ -14,39 +16,39 @@ extern {
 pub fn export(mesh: &mesh::Mesh) -> String {
   let mut result = String::new();
 
-  if !write("v", mesh::Name::Position, 4, mesh, &mut result) {
+  if !write("v", vertex::AttributeName::Position, 4, mesh, &mut result) {
     panic!("No positions when exporting to .obj");
   }
 
-  let textures_written = write("vt", mesh::Name::TextureCoordinate, 3, mesh, &mut result);
-  let normals_written = write("vn", mesh::Name::Normal, 3, mesh, &mut result);
+  let textures_written = write("vt", vertex::AttributeName::TextureCoordinate, 3, mesh, &mut result);
+  let normals_written = write("vn", vertex::AttributeName::Normal, 3, mesh, &mut result);
 
   write_faces(textures_written, normals_written, mesh, &mut result);
 
   return result;
 }
 
-fn write(prefix: &str, name: mesh::Name, max_elements: usize, mesh: &mesh::Mesh, result: &mut String) -> bool {
+fn write(prefix: &str, name: vertex::AttributeName, max_elements: usize, mesh: &mesh::Mesh, result: &mut String) -> bool {
   let attribute = match mesh.attribute_for(name) {
     Some(s) => s, None => return false
   };
 
   let vertex_buffer = &mesh.buffers[attribute.buffer_index];
-
-  let mut cursor = Cursor::new(vertex_buffer.buffer.as_slice());
+  let mut cursor = Cursor::new(vertex_buffer.as_slice());
 
   cursor.seek(SeekFrom::Current(attribute.offset as i64)).unwrap();
 
   let elements = cmp::min(attribute.elements, max_elements);
 
-  let seek_distance = (vertex_buffer.stride - elements * attribute.ty.byte_size()) as i64;
+  let layout = &mesh.descriptor.layouts[attribute.buffer_index];
+  let seek_distance = (layout.stride - elements * attribute.ty.byte_size()) as i64;
 
   for _ in 0 .. mesh.vertex_count {
     result.push_str(prefix);
     for _ in 0 .. elements {
       let value = match attribute.ty {
-        mesh::VertexFormat::f16 => unsafe { convert_from_fp16_f64(cursor.read_i16::<LittleEndian>().unwrap()) },
-        mesh::VertexFormat::i16 => cursor.read_i16::<LittleEndian>().unwrap() as f64,
+        vertex::Format::f16 => unsafe { convert_from_fp16_f64(cursor.read_i16::<LittleEndian>().unwrap()) },
+        vertex::Format::i16 => cursor.read_i16::<LittleEndian>().unwrap() as f64,
         _ => panic!("Unknown ty when exporting .obj")
       };
 
@@ -61,16 +63,16 @@ fn write(prefix: &str, name: mesh::Name, max_elements: usize, mesh: &mesh::Mesh,
 }
 
 fn write_faces(textures_written: bool, normals_written: bool, mesh: &mesh::Mesh, result: &mut String) {
-  let index_buffer = &mesh.submeshes[0];
+  let submesh = &mesh.submeshes[0];
 
-  let mut cursor = Cursor::new(index_buffer.buffer.as_slice());
+  let mut cursor = Cursor::new(submesh.buffer.as_slice());
 
   let mut indices = Vec::new();
 
-  for _ in 0 .. index_buffer.count {
-    let value = match index_buffer.ty {
-      mesh::IndexFormat::u16 => cursor.read_u16::<LittleEndian>().unwrap() as usize,
-      mesh::IndexFormat::u32 => cursor.read_u32::<LittleEndian>().unwrap() as usize,
+  for _ in 0 .. submesh.index_count {
+    let value = match submesh.index_format {
+      index::Format::u16 => cursor.read_u16::<LittleEndian>().unwrap() as usize,
+      index::Format::u32 => cursor.read_u32::<LittleEndian>().unwrap() as usize,
       _ => panic!("Unknown ty when exporting .obj")
     } + 1;
 
@@ -79,7 +81,7 @@ fn write_faces(textures_written: bool, normals_written: bool, mesh: &mesh::Mesh,
 
   let mut triangles = Vec::new();
   
-  for i in 0 .. index_buffer.count / 3 {
+  for i in 0 .. submesh.index_count / 3 {
     triangles.push([indices[3 * i + 0], indices[3 * i + 1], indices[3 * i + 2]])
   }
 

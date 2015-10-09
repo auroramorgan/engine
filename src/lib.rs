@@ -10,7 +10,14 @@ extern crate rustc_serialize;
 pub mod resource_manager;
 pub mod resource_loaders;
 
+pub mod index;
+pub mod vertex;
+
 pub mod mesh;
+
+pub mod importer {
+  pub mod wbg;
+}
 
 pub mod exporter {
   pub mod obj;

@@ -9,6 +9,7 @@ use std::collections::HashMap;
 use eventual::Future;
 
 use mesh;
+use importer;
 
 use resource_loaders;
 use resource_loaders::ResourceLoader;
@@ -107,7 +108,7 @@ fn to_resource(raw: Option<(String, Vec<u8>)>) -> Option<Arc<Resource>> {
       "text/xml" => Resource::Text(String::from_utf8(data).unwrap()),
       "text/html" => Resource::Text(String::from_utf8(data).unwrap()),
       "application/x-ccp-red" => Resource::Binary(data),
-      "application/x-ccp-wbg" => Resource::Mesh(mesh::wbg::load(data).unwrap()),
+      "application/x-ccp-wbg" => Resource::Mesh(importer::wbg::import(data).unwrap()),
       _ => {
         println!("Unknown MIME {:?}, interpreting as Binary", mime);
         Resource::Binary(data)
