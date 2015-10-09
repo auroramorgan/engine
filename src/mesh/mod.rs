@@ -13,8 +13,8 @@ pub struct Submesh {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Mesh {
   pub name: String,
-  pub descriptor: vertex::Descriptor,
   pub vertex_count: usize,
+  pub descriptor: vertex::Descriptor,
   pub buffers: Vec<Vec<u8>>,
   pub submeshes: Vec<Submesh>
 }

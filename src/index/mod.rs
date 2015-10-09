@@ -1,6 +1,6 @@
 #![allow(non_camel_case_types)]
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Format {
   u8, u16, u32, u64
 }
@@ -16,7 +16,7 @@ impl Format {
   }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Geometry {
   Points,
   Lines,

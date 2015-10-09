@@ -4,6 +4,8 @@ use std::cmp;
 use byteorder::{LittleEndian, ReadBytesExt};
 
 use mesh;
+use asset;
+
 use index;
 use vertex;
 
@@ -13,7 +15,19 @@ extern {
   pub fn convert_from_fp16_f64(a: i16) -> f64;
 }
 
-pub fn export(mesh: &mesh::Mesh) -> String {
+pub fn export(asset: &asset::Asset) -> Vec<(String, String)> {
+  let mut files = Vec::new();
+
+  for object in &asset.objects {
+    match object {
+      &asset::Object::Mesh(ref m) => files.push_all(export_mesh(m).as_slice())
+    }
+  }
+
+  return files;
+}
+
+pub fn export_mesh(mesh: &mesh::Mesh) -> Vec<(String, String)> {
   let mut result = String::new();
 
   if !write("v", vertex::AttributeName::Position, 4, mesh, &mut result) {
@@ -23,9 +37,11 @@ pub fn export(mesh: &mesh::Mesh) -> String {
   let textures_written = write("vt", vertex::AttributeName::TextureCoordinate, 3, mesh, &mut result);
   let normals_written = write("vn", vertex::AttributeName::Normal, 3, mesh, &mut result);
 
-  write_faces(textures_written, normals_written, mesh, &mut result);
+  for submesh in &mesh.submeshes {
+    write_faces(textures_written, normals_written, &submesh, &mut result);
+  }
 
-  return result;
+  return vec![(mesh.name.clone() + ".obj", result)];
 }
 
 fn write(prefix: &str, name: vertex::AttributeName, max_elements: usize, mesh: &mesh::Mesh, result: &mut String) -> bool {
@@ -62,9 +78,7 @@ fn write(prefix: &str, name: vertex::AttributeName, max_elements: usize, mesh: &
   return true;
 }
 
-fn write_faces(textures_written: bool, normals_written: bool, mesh: &mesh::Mesh, result: &mut String) {
-  let submesh = &mesh.submeshes[0];
-
+fn write_faces(textures_written: bool, normals_written: bool, submesh: &mesh::Submesh, result: &mut String) {
   let mut cursor = Cursor::new(submesh.buffer.as_slice());
 
   let mut indices = Vec::new();
@@ -80,13 +94,14 @@ fn write_faces(textures_written: bool, normals_written: bool, mesh: &mesh::Mesh,
   }
 
   let mut triangles = Vec::new();
-  
+
   for i in 0 .. submesh.index_count / 3 {
     triangles.push([indices[3 * i + 0], indices[3 * i + 1], indices[3 * i + 2]])
   }
 
+  result.push_str(format!("o {}\n", submesh.name).as_str());
   for triangle in triangles {
-    result.push_str("f");
+    result.push_str("  f");
 
     write_face_part(textures_written, normals_written, triangle[0], result);
     write_face_part(textures_written, normals_written, triangle[1], result);

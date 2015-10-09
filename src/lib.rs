@@ -1,4 +1,5 @@
 #![feature(convert)]
+#![feature(vec_push_all)]
 #![feature(link_llvm_intrinsics)]
 
 extern crate xml;
@@ -13,6 +14,7 @@ pub mod resource_loaders;
 pub mod index;
 pub mod vertex;
 
+pub mod asset;
 pub mod mesh;
 
 pub mod importer {

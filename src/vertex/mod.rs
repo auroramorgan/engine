@@ -1,6 +1,6 @@
 #![allow(non_camel_case_types)]
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Format {
   f16, f32, f64,
   i8_normalized, i8, i16_normalized, i16, i32_normalized, i32,
@@ -58,7 +58,7 @@ impl Attribute {
   }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct BufferLayout {
   pub stride: usize
 }

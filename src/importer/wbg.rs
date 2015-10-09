@@ -3,36 +3,139 @@ use std::io::{Cursor, Read};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 
 use mesh;
+use asset;
+
 use index;
 use vertex;
 
-pub fn import(input: Vec<u8>) -> Option<mesh::Mesh> {
+pub fn import(input: Vec<u8>) -> Option<asset::Asset> {
   let mut cursor = Cursor::new(input);
 
   assert_eq!(cursor.read_u8().unwrap(), 0); // File version
-  assert_eq!(cursor.read_u8().unwrap(), 1); // Mesh count
 
-  return read_mesh(&mut cursor);
+  let mesh_count = cursor.read_u8().unwrap();
+
+  let mut objects = Vec::new();
+  for _ in 0 .. mesh_count {
+    let meshes = read_mesh(&mut cursor);
+
+    for mesh in meshes {
+      objects.push(asset::Object::Mesh(mesh));
+    }
+  }
+
+  return Some(asset::Asset { objects: objects });
 }
 
-fn read_mesh(cursor: &mut Read) -> Option<mesh::Mesh> {
+fn read_mesh(cursor: &mut Read) -> Vec<mesh::Mesh> {
   let name_length = cursor.read_u8().unwrap();
   let mut name = String::new();
   cursor.take(name_length as u64).read_to_string(&mut name).unwrap();
 
-  let (vertex_count, descriptor, vertex_buffer) = read_vertex_buffer(cursor);
-  let index_buffer = read_index_buffer(cursor);
+  let (vertex_count, vertex_buffer, descriptor) = read_vertex_buffer(cursor);
+  let (_, index_buffer, index_format) = read_index_buffer(cursor);
 
-  return Some(mesh::Mesh {
-    name: String::new(),
+  let mut submeshes = Vec::new();
+  let area_count = cursor.read_u8().unwrap();
+  for _ in 0 .. area_count {
+    submeshes.push(read_mesh_area(cursor, &index_buffer, index_format));
+  }
+
+  let mut result = vec![mesh::Mesh {
+    name: name,
     vertex_count: vertex_count,
     descriptor: descriptor,
     buffers: vec![vertex_buffer],
-    submeshes: vec![index_buffer]
-  });
+    submeshes: submeshes
+  }];
+
+  let bone_binding_count = cursor.read_u8().unwrap();
+  println!("Bone binding count: {}", bone_binding_count);
+
+  for _ in 0 .. bone_binding_count {
+    read_bone_binding(cursor);
+  }
+
+  let blend_shape_count = cursor.read_u8().unwrap();
+  println!("Blend shape count: {}", blend_shape_count);
+
+  for _ in 0 .. blend_shape_count {
+    result.push(read_blend_shape(cursor));
+  }
+
+  return result
 }
 
-fn read_vertex_buffer(cursor: &mut Read) -> (usize, vertex::Descriptor, Vec<u8>) {
+fn read_blend_shape(cursor: &mut Read) -> mesh::Mesh {
+  let name_length = cursor.read_u8().unwrap();
+  let mut name = String::new();
+  cursor.take(name_length as u64).read_to_string(&mut name).unwrap();
+
+  println!("Blend shape: {}", name);
+
+  let (vertex_count, vertex_buffer, descriptor) = read_vertex_buffer(cursor);
+  let (index_count, index_buffer, index_format) = read_index_buffer(cursor);
+
+  return mesh::Mesh {
+    name: name,
+    vertex_count: vertex_count,
+    descriptor: descriptor,
+    buffers: vec![vertex_buffer],
+    submeshes: vec![mesh::Submesh {
+      name: String::new(),
+      buffer: index_buffer,
+      index_count: index_count,
+      index_format: index_format,
+      geometry: index::Geometry::Points
+    }]
+  };
+}
+
+fn read_bone_binding(cursor: &mut Read) {
+  let name_length = cursor.read_u8().unwrap();
+  let mut name = String::new();
+  cursor.take(name_length as u64).read_to_string(&mut name).unwrap();
+
+  println!("Bone binding: {}, ignoring", name);
+}
+
+fn read_mesh_area(cursor: &mut Read, index_buffer: &Vec<u8>, index_format: index::Format) -> mesh::Submesh {
+  let name_length = cursor.read_u8().unwrap();
+
+  let mut name = String::new();
+  cursor.take(name_length as u64).read_to_string(&mut name).unwrap();
+
+  let start = cursor.read_u32::<LittleEndian>().unwrap() as usize;
+  let count = cursor.read_u32::<LittleEndian>().unwrap() as usize;
+
+  let _ = [ // TODO: What should we do with min_bounds?
+    cursor.read_f32::<LittleEndian>().unwrap(),
+    cursor.read_f32::<LittleEndian>().unwrap(),
+    cursor.read_f32::<LittleEndian>().unwrap()
+  ];
+
+  let _ = [ // TODO: What should we do with max_bounds?
+    cursor.read_f32::<LittleEndian>().unwrap(),
+    cursor.read_f32::<LittleEndian>().unwrap(),
+    cursor.read_f32::<LittleEndian>().unwrap()
+  ];
+
+  let index_count = 3 * count;
+  let start_byte = index_format.byte_size() * start;
+  let end_byte = start_byte + index_format.byte_size() * index_count;
+
+  let buffer = index_buffer[start_byte .. end_byte].to_owned();
+
+  return mesh::Submesh {
+    name: name,
+    buffer: buffer,
+    index_count: index_count,
+    index_format: index_format,
+    geometry: index::Geometry::Triangles
+  }
+}
+
+fn read_vertex_buffer(cursor: &mut Read) -> (usize, Vec<u8>, vertex::Descriptor) {
   let decl_length = cursor.read_u8().unwrap();
 
   let mut vertex_size = 0usize;
@@ -60,7 +163,7 @@ fn read_vertex_buffer(cursor: &mut Read) -> (usize, vertex::Descriptor, Vec<u8>)
       17 => vertex::Format::i16_normalized,
       24 => vertex::Format::u8_normalized,
       25 => vertex::Format::u16_normalized,
-      
+
       _ => panic!("Unknown ty in .wbg")
     };
 
@@ -105,15 +208,15 @@ fn read_vertex_buffer(cursor: &mut Read) -> (usize, vertex::Descriptor, Vec<u8>)
     }
   }
 
-  let vertex_descriptor = vertex::Descriptor {
+  let descriptor = vertex::Descriptor {
     attributes: vertex_attributes,
     layouts: vec![vertex::BufferLayout { stride: vertex_size }]
   };
 
-  return (vertex_count, vertex_descriptor, buffer.into_inner());
+  return (vertex_count, buffer.into_inner(), descriptor);
 }
 
-fn read_index_buffer(cursor: &mut Read) -> mesh::Submesh {
+fn read_index_buffer(cursor: &mut Read) -> (usize, Vec<u8>, index::Format) {
   let ty = match cursor.read_u8().unwrap() {
     0 => index::Format::u16,
     1 => index::Format::u32,
@@ -137,11 +240,5 @@ fn read_index_buffer(cursor: &mut Read) -> mesh::Submesh {
     }
   }
 
-  return mesh::Submesh {
-    name: String::new(),
-    index_count: index_count as usize,
-    index_format: ty,
-    geometry: index::Geometry::Triangles,
-    buffer: index_buffer.into_inner()
-  }
+  return (index_count as usize, index_buffer.into_inner(), ty);
 }
