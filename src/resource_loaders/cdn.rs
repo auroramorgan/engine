@@ -50,6 +50,10 @@ impl Loader {
       Ok(r) => r, _ => return None
     };
 
+    if response.status != hyper::status::StatusCode::Ok {
+      return None;
+    }
+
     let extension = path::Path::new(path).extension().map(|x| x.to_str().unwrap()).unwrap_or("");
 
     let mime = match extension {
