@@ -1,8 +1,8 @@
-use mesh;
+use model;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Object {
-  Mesh(mesh::Mesh)
+  Model(model::Model)
 }
 
 #[derive(Debug, PartialEq, Clone)]

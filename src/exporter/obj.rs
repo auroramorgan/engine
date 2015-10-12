@@ -5,6 +5,7 @@ use byteorder::{LittleEndian, ReadBytesExt};
 
 use mesh;
 use asset;
+use model;
 
 use index;
 use vertex;
@@ -20,15 +21,17 @@ pub fn export(asset: &asset::Asset) -> Vec<(String, String)> {
 
   for object in &asset.objects {
     match object {
-      &asset::Object::Mesh(ref m) => files.push_all(export_mesh(m).as_slice())
+      &asset::Object::Model(ref m) => files.push_all(export_model(m).as_slice())
     }
   }
 
   return files;
 }
 
-pub fn export_mesh(mesh: &mesh::Mesh) -> Vec<(String, String)> {
+pub fn export_model(model: &model::Model) -> Vec<(String, String)> {
   let mut result = String::new();
+
+  let mesh = &model.mesh;
 
   if !write("v", vertex::AttributeName::Position, 4, mesh, &mut result) {
     panic!("No positions when exporting to .obj");

@@ -40,14 +40,12 @@ fn main() {
         _ => panic!("{:?} is not an asset, sorry.", geometry_path)
       };
 
-      println!("{:?}", geometry);
-
       let dir = args[3].clone();
       fs::create_dir_all(&dir).unwrap();
 
       for (path, obj) in objs {
-        println!("{:?}", dir.clone() + path.as_str());
         let mut f = fs::File::create(dir.clone() + path.as_str()).unwrap();
+
         f.write_all(obj.as_bytes()).unwrap();
       }
     }
