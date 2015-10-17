@@ -16,6 +16,8 @@ pub mod resource_loaders;
 pub mod index;
 pub mod vertex;
 
+pub mod view;
+
 pub mod mesh;
 pub mod asset;
 pub mod model;

@@ -3,8 +3,8 @@
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Format {
   f16, f32, f64,
-  i8_normalized, i8, i16_normalized, i16, i32_normalized, i32,
-  u8_normalized, u8, u16_normalized, u16, u32_normalized, u32
+  i8_normalized, i8, i16_normalized, i16, i32_normalized, i32, i64_normalized, i64,
+  u8_normalized, u8, u16_normalized, u16, u32_normalized, u32, u64_normalized, u64
 }
 
 impl Format {
@@ -16,9 +16,11 @@ impl Format {
       Format::i8_normalized  | Format::i8  => 1,
       Format::i16_normalized | Format::i16 => 2,
       Format::i32_normalized | Format::i32 => 4,
+      Format::i64_normalized | Format::i64 => 8,
       Format::u8_normalized  | Format::u8  => 1,
       Format::u16_normalized | Format::u16 => 2,
-      Format::u32_normalized | Format::u32 => 4
+      Format::u32_normalized | Format::u32 => 4,
+      Format::u64_normalized | Format::u64 => 8
     };
   }
 }
