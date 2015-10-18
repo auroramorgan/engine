@@ -48,7 +48,7 @@ pub fn export_model(model: &model::Model) -> Vec<(String, String)> {
 }
 
 fn write(prefix: &str, name: vertex::AttributeName, max_elements: usize, mesh: &mesh::Mesh, result: &mut String) -> bool {
-  let attribute = match mesh.attribute_for(name) {
+  let attribute = match mesh.attribute_for(&name) {
     Some(s) => s, None => return false
   };
 
@@ -57,25 +57,26 @@ fn write(prefix: &str, name: vertex::AttributeName, max_elements: usize, mesh: &
 
   cursor.seek(SeekFrom::Current(attribute.offset as i64)).unwrap();
 
-  let elements = cmp::min(attribute.elements, max_elements);
+  let elements = cmp::min(attribute.format.elements(), max_elements);
 
-  let layout = &mesh.descriptor.layouts[attribute.buffer_index];
-  let seek_distance = (layout.stride - elements * attribute.ty.byte_size()) as i64;
+  println!("Elements {:?} for {:?}", elements, name);
 
-  for _ in 0 .. mesh.vertex_count {
+  let stride = &mesh.descriptor.layouts[attribute.buffer_index].stride;
+
+  for i in 0 .. mesh.vertex_count {
+    cursor.seek(SeekFrom::Start((stride * i + attribute.offset) as u64)).unwrap();
+
     result.push_str(prefix);
     for _ in 0 .. elements {
-      let value = match attribute.ty {
-        vertex::Format::f16 => unsafe { convert_from_fp16_f64(cursor.read_i16::<LittleEndian>().unwrap()) },
-        vertex::Format::i16 => cursor.read_i16::<LittleEndian>().unwrap() as f64,
+      let value = match attribute.format.scalar() {
+        vertex::Scalar::f16 => unsafe { convert_from_fp16_f64(cursor.read_i16::<LittleEndian>().unwrap()) },
+        vertex::Scalar::i16 => cursor.read_i16::<LittleEndian>().unwrap() as f64,
         _ => panic!("Unknown ty when exporting .obj")
       };
 
       result.push_str(format!(" {}", value).as_str());
     }
     result.push_str("\n");
-
-    cursor.seek(SeekFrom::Current(seek_distance)).unwrap();
   }
 
   return true;

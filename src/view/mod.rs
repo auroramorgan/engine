@@ -41,15 +41,9 @@ macro_rules! impl_mut_view {
 }
 
 macro_rules! impl_view_constructor {
-  ($name:ident, $format:ident, $ty:ty, $data:ident, $attribute:ident, $count:ident, $stride:ident) => {
+  ($name:ident, $scalar:ident, $width:ident, $ty:ty, $data:ident, $attribute:ident, $count:ident, $stride:ident) => {
     {
-      if $attribute.ty != vertex::Format::$format {
-        panic!("Invalid attribute format!");
-      }
-
-      if $attribute.elements != 1 {
-        panic!("FIXME: Vector formats are going to be deprecated soon :C");
-      }
+      assert_eq!($attribute.format, vertex::Format(vertex::Scalar::$scalar, vertex::Width::$width));
 
       let stride_unaligned = $stride % mem::size_of::<$ty>() != 0;
       let offset_unaligned = $attribute.offset % mem::size_of::<$ty>() != 0;
@@ -70,7 +64,7 @@ macro_rules! impl_view_constructor {
 }
 
 macro_rules! view {
-  ($name:ident, $format:ident, $ty:ty, $out:ty, $f:ident) => {
+  ($name:ident, $mut_name:ident, $scalar:ident, $ty:ty, $out:ty, $f_out:ident, $f_in:ident) => {
     pub struct $name<'a> {
       data: &'a [$ty],
       count: usize,
@@ -81,17 +75,13 @@ macro_rules! view {
 
     impl<'a> $name<'a> {
       pub fn new(data: &'a [u8], attribute: &'a vertex::Attribute, count: usize, stride: usize) -> $name<'a> {
-        return impl_view_constructor!($name, $format, $ty, data, attribute, count, stride);
+        return impl_view_constructor!($name, $scalar, Scalar, $ty, data, attribute, count, stride);
       }
 
-      impl_view!($name, $out, $f);
+      impl_view!($name, $out, $f_out);
     }
-  }
-}
 
-macro_rules! mut_view {
-  ($name:ident, $format:ident, $ty:ty, $out:ty, $f_out:ident, $f_in:ident) => {
-    pub struct $name<'a> {
+    pub struct $mut_name<'a> {
       data: &'a mut [$ty],
       count: usize,
       stride: usize,
@@ -99,13 +89,13 @@ macro_rules! mut_view {
       pub attribute: &'a vertex::Attribute
     }
 
-    impl<'a> $name<'a> {
-      pub fn new(data: &'a mut [u8], attribute: &'a vertex::Attribute, count: usize, stride: usize) -> $name<'a> {
-        return impl_view_constructor!($name, $format, $ty, data, attribute, count, stride);
+    impl<'a> $mut_name<'a> {
+      pub fn new(data: &'a mut [u8], attribute: &'a vertex::Attribute, count: usize, stride: usize) -> $mut_name<'a> {
+        return impl_view_constructor!($mut_name, $scalar, Scalar, $ty, data, attribute, count, stride);
       }
 
-      impl_view!($name, $out, $f_out);
-      impl_mut_view!($name, $out, $f_in);
+      impl_view!($mut_name, $out, $f_out);
+      impl_mut_view!($mut_name, $out, $f_in);
     }
   }
 }
@@ -122,33 +112,16 @@ fn f32_to_f16(input: f32) -> i16 {
   return unsafe { convert_from_f32_to_f16(input) };
 }
 
-view!(U8View, u8, u8, u8, identity);
-view!(U16View, u16, u16, u16, identity);
-view!(U32View, u32, u32, u32, identity);
-view!(U64View, u64, u64, u64, identity);
+view!(U8View, U8MutView, u8, u8, u8, identity, identity);
+view!(U16View, U16MutView, u16, u16, u16, identity, identity);
+view!(U32View, U33MutView, u32, u32, u32, identity, identity);
 
-mut_view!(U8MutView, u8, u8, u8, identity, identity);
-mut_view!(U1Mut6View, u16, u16, u16, identity, identity);
-mut_view!(U3Mut2View, u32, u32, u32, identity, identity);
-mut_view!(U6Mut4View, u64, u64, u64, identity, identity);
+view!(I8View, I8MutView, i8, i8, i8, identity, identity);
+view!(I16View, I16MutView, i16, i16, i16, identity, identity);
+view!(I32View, I32MutView, i32, i32, i32, identity, identity);
 
-view!(I8View, i8, i8, i8, identity);
-view!(I16View, i16, i16, i16, identity);
-view!(I32View, i32, i32, i32, identity);
-view!(I64View, i64, i64, i64, identity);
-
-mut_view!(I8MutView, i8, i8, i8, identity, identity);
-mut_view!(I1Mut6View, i16, i16, i16, identity, identity);
-mut_view!(I3Mut2View, i32, i32, i32, identity, identity);
-mut_view!(I6Mut4View, i64, i64, i64, identity, identity);
-
-view!(F16View, f16, i16, f32, f16_to_f32);
-view!(F32View, f32, f32, f32, identity);
-view!(F64View, f64, f64, f64, identity);
-
-mut_view!(F16MutView, f16, i16, f32, f16_to_f32, f32_to_f16);
-mut_view!(F32MutView, f32, f32, f32, identity, identity);
-mut_view!(F64MutView, f64, f64, f64, identity, identity);
+view!(F16View, F16MutView, f16, i16, f32, f16_to_f32, f32_to_f16);
+view!(F32View, F32MutView, f32, f32, f32, identity, identity);
 
 enum View<'a> {
   f16(F16View<'a>)
@@ -161,8 +134,10 @@ pub struct F32OmniView<'a> {
 
 impl<'a> F32OmniView<'a> {
   pub fn new(data: &'a [u8], attribute: &'a vertex::Attribute, count: usize, stride: usize) -> F32OmniView<'a> {
-    let view = match attribute.ty {
-      vertex::Format::f16 => View::f16(F16View::new(data, attribute, count, stride)),
+    let view = match attribute.format {
+      vertex::Format(vertex::Scalar::f16, vertex::Width::Scalar) => {
+        View::f16(F16View::new(data, attribute, count, stride))
+      }
       ty => panic!("Unsupported view type {:?} for omni view", ty)
     };
 

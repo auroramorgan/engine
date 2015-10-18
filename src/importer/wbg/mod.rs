@@ -89,26 +89,28 @@ fn read_vertex_buffer(cursor: &mut Read) -> (usize, Vec<u8>, vertex::Descriptor)
     let _ = cursor.read_u8().unwrap(); // TODO: Is this useful?
 
     let file_type = cursor.read_u8().unwrap();
-    let elements = (file_type >> 5) + 1;
+    let width = vertex::Width::from_integer((file_type as usize >> 5) + 1).unwrap();
     let offset = vertex_size;
 
-    let ty = match file_type & 0x0F {
-      0 => vertex::Format::i8,
-      1 => vertex::Format::i16,
-      2 => vertex::Format::i32,
-      3 => vertex::Format::f16,
-      4 => vertex::Format::f32,
-      8 => vertex::Format::u8,
-      9 => vertex::Format::u16,
-      10 => vertex::Format::u32,
-      16 => vertex::Format::i8_normalized,
-      17 => vertex::Format::i16_normalized,
-      24 => vertex::Format::u8_normalized,
-      25 => vertex::Format::u16_normalized,
+    let scalar = match file_type & 0x0F {
+      0 => vertex::Scalar::i8,
+      1 => vertex::Scalar::i16,
+      2 => vertex::Scalar::i32,
+      3 => vertex::Scalar::f16,
+      4 => vertex::Scalar::f32,
+      8 => vertex::Scalar::u8,
+      9 => vertex::Scalar::u16,
+      10 => vertex::Scalar::u32,
+      16 => vertex::Scalar::i8_normalized,
+      17 => vertex::Scalar::i16_normalized,
+      24 => vertex::Scalar::u8_normalized,
+      25 => vertex::Scalar::u16_normalized,
       ty => panic!("Unknown ty in .wbg ({:?})", ty)
     };
 
-    vertex_size += ty.byte_size() * (elements as usize);
+    let format = vertex::Format(scalar, width);
+
+    vertex_size += format.byte_size();
 
     let name = match usage {
       0 => vertex::AttributeName::Position,
@@ -124,9 +126,9 @@ fn read_vertex_buffer(cursor: &mut Read) -> (usize, Vec<u8>, vertex::Descriptor)
 
     let vertex_attribute = vertex::Attribute {
       name: name,
+      format: format,
       offset: offset as usize,
       buffer_index: 0,
-      ty: ty, elements: elements as usize
     };
 
     vertex_attributes.push(vertex_attribute);
@@ -136,18 +138,26 @@ fn read_vertex_buffer(cursor: &mut Read) -> (usize, Vec<u8>, vertex::Descriptor)
   let vertex_count = cursor.read_u32::<LittleEndian>().unwrap() as usize;
 
   for _ in 0 .. vertex_count {
-    for decl in &vertex_attributes {
-      for _ in 0 .. decl.elements {
-        match decl.ty {
-          vertex::Format::i8 | vertex::Format::u8 => {
+    for attribute in &vertex_attributes {
+      let format = attribute.format;
+
+      for _ in 0 .. format.elements() {
+        match format.scalar().byte_size() {
+          1 => {
             let value = cursor.read_i8().unwrap();
             buffer.write_i8(value).unwrap();
           }
-          vertex::Format::i16 | vertex::Format::u16 | vertex::Format::f16 => {
+          2 => {
             let value = cursor.read_i16::<LittleEndian>().unwrap();
             buffer.write_i16::<LittleEndian>(value).unwrap();
           }
-          ty => panic!("Unknown format in .wbg ({:?})", ty)
+          4 => {
+            let value = cursor.read_i16::<LittleEndian>().unwrap();
+            buffer.write_i16::<LittleEndian>(value).unwrap();
+          }
+          size => {
+            panic!("Unknown scalar size in .wbg {:?}, expected 1, 2, or 4", size);
+          }
         };
       }
     }
