@@ -1,14 +1,13 @@
 pub mod sof;
 
-use std::sync::Arc;
-
+use std;
 use std::thread;
 
 use std::collections::HashMap;
-
-use eventual::Future;
+use std::sync::Arc;
 
 use asset;
+use buffer;
 use importer;
 
 use resource_loaders;
@@ -16,7 +15,7 @@ use resource_loaders::ResourceLoader;
 
 #[derive(Debug)]
 pub enum Resource {
-  Binary(Vec<u8>),
+  Binary(Arc<buffer::Buffer>),
   Text(String),
   Asset(asset::Asset)
 }
@@ -79,44 +78,33 @@ impl ResourceManager {
     let p = self.parse_path(path);
 
     return match p {
-      Some((l, r)) => to_resource(l.load(r.as_str())),
-      _ => None
-    };
-  }
-
-  pub fn load_async(&self, path: &str) -> Future<Arc<Resource>, ()> {
-    let p = self.parse_path(path);
-
-    return match p {
       Some((l, r)) => {
-        let loader = l.clone();
-
-        Future::spawn(move || { to_resource(loader.load(r.as_str())).unwrap() })
-      },
-      None => {
-        Future::error(())
+        if let Some((mime, data)) = l.load(r.as_str()) {
+          Some(to_resource(mime, buffer::Buffer::new(Some(path.to_owned()), None, data)))
+        } else {
+          None
+        }
       }
+      _ => None
     };
   }
 }
 
 // TODO: Make this pluggable
-fn to_resource(raw: Option<(String, Vec<u8>)>) -> Option<Arc<Resource>> {
-  if let Some((mime, data)) = raw {
-    let result = match mime.as_str() {
-      "application/octet-stream" => Resource::Binary(data),
-      "text/xml" => Resource::Text(String::from_utf8(data).unwrap()),
-      "text/html" => Resource::Text(String::from_utf8(data).unwrap()),
-      "application/x-ccp-red" => Resource::Binary(data),
-      "application/x-ccp-wbg" => Resource::Asset(importer::wbg::import(data).unwrap()),
-      _ => {
-        println!("Unknown MIME {:?}, interpreting as Binary", mime);
-        Resource::Binary(data)
-      }
-    };
+fn to_resource(mime: String, data: Arc<buffer::Buffer>) -> Arc<Resource> {
+  let result = match mime.as_str() {
+    "application/octet-stream" => Resource::Binary(data),
+    "text/xml" => Resource::Text(std::str::from_utf8(&data[..]).unwrap().to_owned()),
+    "text/html" => Resource::Text(std::str::from_utf8(&data[..]).unwrap().to_owned()),
+    "application/x-ccp-red" => Resource::Binary(data),
+    "application/x-ccp-wbg" => {
+      Resource::Asset(importer::wbg::import(data).unwrap())
+    }
+    _ => {
+      println!("Unknown MIME {:?}, interpreting as Binary", mime);
+      Resource::Binary(data)
+    }
+  };
 
-    return Some(Arc::new(result));
-  } else {
-    return None;
-  }
+  return Arc::new(result);
 }

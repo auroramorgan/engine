@@ -1,8 +1,10 @@
-use std::io::{Cursor, Read};
+use std::io::{Cursor, Read, Seek, SeekFrom};
+use std::sync::Arc;
 
-use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::{LittleEndian, ReadBytesExt};
 
 use asset;
+use buffer::{Buffer, BufferView};
 use model;
 
 use mesh::Mesh;
@@ -18,17 +20,23 @@ mod mesh_bindings;
 
 mod animation;
 
+#[cfg(target_endian = "big")]
 pub fn import(input: Vec<u8>) -> Option<asset::Asset> {
-  let mut cursor = Cursor::new(input);
+  return None; // TODO: Support Big Endian too in the long run maybe?
+}
+
+#[cfg(target_endian = "little")]
+pub fn import(input: Arc<Buffer>) -> Option<asset::Asset> {
+  let mut cursor = Cursor::new(&input[..]);
 
   let _ = cursor.read_u8().unwrap(); // TODO: File version, seen 0 and 60…
 
   let mesh_count = cursor.read_u8().unwrap();
 
   let meshes: Vec<(Mesh, Vec<Mesh>)> = (0 .. mesh_count).map(|_| {
-    let mesh = mesh::read_mesh(&mut cursor);
+    let mesh = mesh::read_mesh(&mut cursor, input.clone());
     let _ = bone_bindings::read_bone_bindings(&mut cursor);
-    let blend_shapes = blend_shape::read_blend_shapes(&mut cursor);
+    let blend_shapes = blend_shape::read_blend_shapes(&mut cursor, input.clone());
 
     (mesh, blend_shapes)
   }).collect();
@@ -64,7 +72,7 @@ pub fn import(input: Vec<u8>) -> Option<asset::Asset> {
     objects.push(asset::Object::Model(model));
   }
 
-  return Some(asset::Asset { objects: objects });
+  return Some(asset::Asset { buffers: vec![input.clone()], objects: objects });
 }
 
 fn read_string(cursor: &mut Read) -> String {
@@ -77,7 +85,7 @@ fn read_string(cursor: &mut Read) -> String {
   return string;
 }
 
-fn read_vertex_buffer(cursor: &mut Read) -> (usize, Vec<u8>, vertex::Descriptor) {
+fn read_vertex_buffer(cursor: &mut Cursor<&[u8]>, buffer: Arc<Buffer>) -> (usize, Arc<BufferView>, vertex::Descriptor) {
   let decl_length = cursor.read_u8().unwrap();
 
   let mut vertex_size = 0usize;
@@ -134,66 +142,36 @@ fn read_vertex_buffer(cursor: &mut Read) -> (usize, Vec<u8>, vertex::Descriptor)
     vertex_attributes.push(vertex_attribute);
   }
 
-  let mut buffer = Cursor::new(Vec::new());
   let vertex_count = cursor.read_u32::<LittleEndian>().unwrap() as usize;
 
-  for _ in 0 .. vertex_count {
-    for attribute in &vertex_attributes {
-      let format = attribute.format;
+  let offset = cursor.seek(SeekFrom::Current(0)).unwrap();
+  let length = (vertex_count * vertex_size) as u64;
+  let _ = cursor.seek(SeekFrom::Start(offset + length)).unwrap();
 
-      for _ in 0 .. format.elements() {
-        match format.scalar().byte_size() {
-          1 => {
-            let value = cursor.read_i8().unwrap();
-            buffer.write_i8(value).unwrap();
-          }
-          2 => {
-            let value = cursor.read_i16::<LittleEndian>().unwrap();
-            buffer.write_i16::<LittleEndian>(value).unwrap();
-          }
-          4 => {
-            let value = cursor.read_i16::<LittleEndian>().unwrap();
-            buffer.write_i16::<LittleEndian>(value).unwrap();
-          }
-          size => {
-            panic!("Unknown scalar size in .wbg {:?}, expected 1, 2, or 4", size);
-          }
-        };
-      }
-    }
-  }
+  let view = BufferView::new(None, buffer, offset as usize, length as usize);
 
   let descriptor = vertex::Descriptor {
     attributes: vertex_attributes,
     layouts: vec![vertex::BufferLayout { stride: vertex_size }]
   };
 
-  return (vertex_count, buffer.into_inner(), descriptor);
+  return (vertex_count, view, descriptor);
 }
 
-fn read_index_buffer(cursor: &mut Read) -> (usize, Vec<u8>, index::Format) {
-  let ty = match cursor.read_u8().unwrap() {
+fn read_index_buffer(cursor: &mut Cursor<&[u8]>, buffer: Arc<Buffer>) -> (usize, Arc<BufferView>, index::Format) {
+  let format = match cursor.read_u8().unwrap() {
     0 => index::Format::u16,
     1 => index::Format::u32,
     n => panic!("Unknown format in .wbg ({:?})", n)
   };
 
-  let index_count = cursor.read_u32::<LittleEndian>().unwrap();
-  let mut index_buffer = Cursor::new(Vec::new());
+  let index_count = cursor.read_u32::<LittleEndian>().unwrap() as usize;
 
-  for _ in 0 .. index_count {
-    match ty {
-      index::Format::u16 => {
-        let value = cursor.read_u16::<LittleEndian>().unwrap();
-        index_buffer.write_u16::<LittleEndian>(value).unwrap();
-      }
-      index::Format::u32 => {
-        let value = cursor.read_u32::<LittleEndian>().unwrap();
-        index_buffer.write_u32::<LittleEndian>(value).unwrap();
-      }
-      _ => panic!("Unknown ty in .wbg")
-    }
-  }
+  let offset = cursor.seek(SeekFrom::Current(0)).unwrap();
+  let length = (index_count * format.byte_size()) as u64;
+  let _ = cursor.seek(SeekFrom::Start(offset + length)).unwrap();
 
-  return (index_count as usize, index_buffer.into_inner(), ty);
+  let view = BufferView::new(None, buffer, offset as usize, length as usize);
+
+  return (index_count, view, format);
 }

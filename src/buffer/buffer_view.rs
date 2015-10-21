@@ -6,11 +6,11 @@ use buffer::Buffer;
 
 #[derive(Debug, Clone)]
 pub struct BufferView {
-  name: Option<String>,
+  pub name: Option<String>,
 
-  buffer: Arc<Buffer>,
-  offset: usize,
-  length: usize
+  pub buffer: Arc<Buffer>,
+  pub offset: usize,
+  pub length: usize
 }
 
 impl BufferView {

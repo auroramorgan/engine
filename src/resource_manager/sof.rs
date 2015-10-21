@@ -59,7 +59,7 @@ impl Manager {
 
     let mut json = String::new();
 
-    for e in EventReader::new(io::Cursor::new(string)) {
+    for e in EventReader::new(io::Cursor::new(&string[..])) {
         match e {
             Err(e) => panic!("I/O Error while reading from memory? {:?}", e),
             Ok(XmlEvent::Characters(s)) => json.push_str(s.as_str()),

@@ -59,8 +59,6 @@ fn write(prefix: &str, name: vertex::AttributeName, max_elements: usize, mesh: &
 
   let elements = cmp::min(attribute.format.elements(), max_elements);
 
-  println!("Elements {:?} for {:?}", elements, name);
-
   let stride = &mesh.descriptor.layouts[attribute.buffer_index].stride;
 
   for i in 0 .. mesh.vertex_count {
@@ -83,7 +81,7 @@ fn write(prefix: &str, name: vertex::AttributeName, max_elements: usize, mesh: &
 }
 
 fn write_faces(textures_written: bool, normals_written: bool, submesh: &mesh::Submesh, result: &mut String) {
-  let mut cursor = Cursor::new(submesh.buffer.as_slice());
+  let mut cursor = Cursor::new(submesh.view.as_slice());
 
   let mut indices = Vec::new();
 

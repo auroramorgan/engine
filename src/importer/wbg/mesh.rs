@@ -1,17 +1,19 @@
-use std::io::Read;
+use std::io::Cursor;
+use std::sync::Arc;
 
 use byteorder::{LittleEndian, ReadBytesExt};
 
+use buffer;
 use mesh;
 use index;
 
 use importer::wbg::{read_string, read_vertex_buffer, read_index_buffer};
 
-pub fn read_mesh(cursor: &mut Read) -> mesh::Mesh {
+pub fn read_mesh(cursor: &mut Cursor<&[u8]>, buffer: Arc<buffer::Buffer>) -> mesh::Mesh {
   let name = read_string(cursor);
 
-  let (vertex_count, vertex_buffer, descriptor) = read_vertex_buffer(cursor);
-  let (_, index_buffer, index_format) = read_index_buffer(cursor);
+  let (vertex_count, vertex_buffer, descriptor) = read_vertex_buffer(cursor, buffer.clone());
+  let (_, index_buffer, index_format) = read_index_buffer(cursor, buffer);
 
   let area_count = cursor.read_u8().unwrap();
 
@@ -28,7 +30,7 @@ pub fn read_mesh(cursor: &mut Read) -> mesh::Mesh {
   };
 }
 
-fn read_mesh_area(cursor: &mut Read, index_buffer: &Vec<u8>, index_format: index::Format) -> mesh::Submesh {
+fn read_mesh_area(cursor: &mut Cursor<&[u8]>, index_buffer: &Arc<buffer::BufferView>, index_format: index::Format) -> mesh::Submesh {
   let name = read_string(cursor);
 
   let start = cursor.read_u32::<LittleEndian>().unwrap() as usize;
@@ -47,14 +49,18 @@ fn read_mesh_area(cursor: &mut Read, index_buffer: &Vec<u8>, index_format: index
   ];
 
   let index_count = 3 * count;
-  let start_byte = index_format.byte_size() * start;
-  let end_byte = start_byte + index_format.byte_size() * index_count;
+  let offset = index_buffer.offset + index_format.byte_size() * start;
+  let length = index_format.byte_size() * index_count;
 
-  let buffer = index_buffer[start_byte .. end_byte].to_owned();
+  assert!(offset >= index_buffer.offset);
+  assert!(offset + length <= index_buffer.offset + index_buffer.length);
+
+  let buffer = index_buffer.buffer.clone();
+  let view = buffer::BufferView::new(index_buffer.name.clone(), buffer, offset, length);
 
   return mesh::Submesh {
     name: name,
-    buffer: buffer,
+    view: view,
     index_count: index_count,
     index_format: index_format,
     geometry: index::Geometry::Triangles

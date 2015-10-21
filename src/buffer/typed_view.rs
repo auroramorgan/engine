@@ -5,11 +5,11 @@ use buffer::buffer_view::BufferView;
 
 #[derive(Debug, Clone)]
 pub struct TypedView<'a, T: 'a> {
-  name: Option<String>,
+  pub name: Option<String>,
 
-  offset: usize,
-  stride: usize,
-  length: usize,
+  pub offset: usize,
+  pub stride: usize,
+  pub length: usize,
 
   data: &'a [T]
 }

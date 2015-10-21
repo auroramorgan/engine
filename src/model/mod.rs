@@ -2,7 +2,7 @@ use mesh;
 
 use animation::skeleton;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone)]
 pub struct Model {
   pub name: String,
   pub mesh: mesh::Mesh,
