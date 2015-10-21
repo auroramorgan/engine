@@ -13,10 +13,10 @@ extern crate rustc_serialize;
 pub mod resource_manager;
 pub mod resource_loaders;
 
+pub mod buffer;
+
 pub mod index;
 pub mod vertex;
-
-pub mod view;
 
 pub mod mesh;
 pub mod asset;
