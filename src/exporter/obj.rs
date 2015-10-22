@@ -7,7 +7,6 @@ use mesh;
 use asset;
 use model;
 
-use index;
 use vertex;
 
 extern {
@@ -81,33 +80,14 @@ fn write(prefix: &str, name: vertex::AttributeName, max_elements: usize, mesh: &
 }
 
 fn write_faces(textures_written: bool, normals_written: bool, submesh: &mesh::Submesh, result: &mut String) {
-  let mut cursor = Cursor::new(submesh.view.as_slice());
-
-  let mut indices = Vec::new();
-
-  for _ in 0 .. submesh.index_count {
-    let value = match submesh.index_format {
-      index::Format::u16 => cursor.read_u16::<LittleEndian>().unwrap() as usize,
-      index::Format::u32 => cursor.read_u32::<LittleEndian>().unwrap() as usize,
-      _ => panic!("Unknown ty when exporting .obj")
-    } + 1;
-
-    indices.push(value);
-  }
-
-  let mut triangles = Vec::new();
-
-  for i in 0 .. submesh.index_count / 3 {
-    triangles.push([indices[3 * i + 0], indices[3 * i + 1], indices[3 * i + 2]])
-  }
-
   result.push_str(format!("o {}\n", submesh.name).as_str());
-  for triangle in triangles {
+
+  for face in submesh.faces() {
     result.push_str("  f");
 
-    write_face_part(textures_written, normals_written, triangle[0], result);
-    write_face_part(textures_written, normals_written, triangle[1], result);
-    write_face_part(textures_written, normals_written, triangle[2], result);
+    for vertex in face {
+      write_face_part(textures_written, normals_written, vertex + 1, result);
+    }
 
     result.push_str("\n")
   }

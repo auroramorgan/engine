@@ -16,6 +16,8 @@ pub struct TypedView<'a, T: 'a> {
 
 impl<'a, T: 'a> TypedView<'a, T> {
   pub fn new(name: Option<String>, view: &'a BufferView, offset: usize, stride: usize, length: usize) -> TypedView<'a, T> {
+    let stride = if stride == 0 { mem::align_of::<T>() } else { stride };
+
     let stride_unaligned = stride % mem::align_of::<T>() != 0;
     let offset_unaligned = offset % mem::align_of::<T>() != 0;
 
