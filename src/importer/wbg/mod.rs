@@ -43,22 +43,22 @@ pub fn import(input: Arc<Buffer>) -> Option<asset::Asset> {
 
   let model_count = cursor.read_u8().unwrap();
 
-  let models: Vec<model::Model> = (0 .. model_count).map(|_| {
+  let models: Vec<Vec<asset::Object>> = (0 .. model_count).map(|_| {
     let name = read_string(&mut cursor);
 
     let skeleton = skeleton::read_skeleton(&mut cursor);
     let mesh_bindings = mesh_bindings::read_mesh_bindings(&mut cursor);
 
-    assert_eq!(mesh_bindings.len(), 1);
+    mesh_bindings.iter().map(|i| {
+      let (ref mesh, ref blend_shapes) = meshes[mesh_bindings[*i]];
 
-    let (ref mesh, ref blend_shapes) = meshes[mesh_bindings[0]];
-
-    model::Model {
-      name: name,
-      mesh: mesh.clone(),
-      blend_shapes: blend_shapes.clone(),
-      skeleton: skeleton
-    }
+      asset::Object::Model(model::Model {
+        name: name.clone(),
+        mesh: mesh.clone(),
+        blend_shapes: blend_shapes.clone(),
+        skeleton: skeleton.clone()
+      })
+    }).collect()
   }).collect();
 
   let animation_count = cursor.read_u8().unwrap();
@@ -67,10 +67,7 @@ pub fn import(input: Arc<Buffer>) -> Option<asset::Asset> {
     animation::read_animation(&mut cursor)
   }).last();
 
-  let mut objects = Vec::new();
-  for model in models {
-    objects.push(asset::Object::Model(model));
-  }
+  let objects = models.iter().fold(vec![], |mut sum, x| { sum.push_all(&*x); sum });
 
   return Some(asset::Asset { buffers: vec![input.clone()], objects: objects });
 }

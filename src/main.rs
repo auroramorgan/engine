@@ -50,11 +50,15 @@ fn export(sof: &engine::resource_manager::sof::Manager, resource_manager: Arc<en
     _ => panic!("{:?} is not an asset, sorry.", geometry_path)
   };
 
-  let dir = destination.clone();
-  fs::create_dir_all(&dir).unwrap();
-
   for (path, obj) in objs {
-    let mut f = fs::File::create(dir.clone() + path.as_str()).unwrap();
+    let dirpath = format!("{}/{}", &destination, arg);
+
+    fs::create_dir_all(&dirpath).unwrap();
+
+    let filename = format!("{}/{}", dirpath, path);
+    println!("Writing {} (to {})", path, filename);
+
+    let mut f = fs::File::create(filename).unwrap();
 
     f.write_all(obj.as_bytes()).unwrap();
   }

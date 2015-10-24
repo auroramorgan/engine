@@ -7,10 +7,8 @@ use animation::sampler;
 use importer::wbg::read_string;
 
 pub fn read_animation(cursor: &mut Read) {
-  let name = read_string(cursor);
-  let duration = cursor.read_f32::<LittleEndian>().unwrap();
-
-  println!("Animation Name: {:?} ({:?})", name, duration);
+  let _ = read_string(cursor);
+  let _ = cursor.read_f32::<LittleEndian>().unwrap();
 
   let group_count = cursor.read_u8().unwrap();
 
@@ -26,7 +24,7 @@ fn read_group(cursor: &mut Read) -> Vec<(String, (Option<sampler::Sampler>, Opti
 }
 
 fn read_transform_track(cursor: &mut Read) -> (Option<sampler::Sampler>, Option<sampler::Sampler>, Option<sampler::Sampler>) {
-  let name = read_string(cursor);
+  let _ = read_string(cursor);
 
   let mut orientation = read_curves(cursor);
   let position = read_curves(cursor);
@@ -41,8 +39,6 @@ fn read_transform_track(cursor: &mut Read) -> (Option<sampler::Sampler>, Option<
       }
     }
   }
-
-  println!("  Transform track: {:?}", name);
 
   return (orientation, position, scale_shear);
 }
