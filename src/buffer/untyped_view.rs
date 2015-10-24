@@ -19,7 +19,7 @@ pub enum ScalarValue {
 
 impl ScalarValue {
   pub fn to_f32(&self) -> f32 {
-    match *self {
+    return match *self {
       ScalarValue::f16(x) => unsafe { convert_from_fp16_to_f32(x) },
       ScalarValue::f32(x) => x,
       ScalarValue::u8(x) => x as f32,
@@ -34,7 +34,7 @@ impl ScalarValue {
       ScalarValue::i8_normalized(x) => (x as f32 / std::i8::MAX as f32).max(-1.0),
       ScalarValue::i16_normalized(x) => (x as f32 / std::i16::MAX as f32).max(-1.0),
       ScalarValue::i32_normalized(x) => (x as f32 / std::i32::MAX as f32).max(-1.0)
-    }
+    };
   }
 }
 
@@ -56,6 +56,25 @@ pub enum ScalarUntypedView<'a> {
 }
 
 impl<'a> ScalarUntypedView<'a> {
+  pub fn len(&self) -> usize {
+    return match *self {
+      ScalarUntypedView::f16(ref x) => x.len(),
+      ScalarUntypedView::f32(ref x) => x.len(),
+      ScalarUntypedView::u8(ref x) => x.len(),
+      ScalarUntypedView::u16(ref x) => x.len(),
+      ScalarUntypedView::u32(ref x) => x.len(),
+      ScalarUntypedView::u8_normalized(ref x) => x.len(),
+      ScalarUntypedView::u16_normalized(ref x) => x.len(),
+      ScalarUntypedView::u32_normalized(ref x) => x.len(),
+      ScalarUntypedView::i8(ref x) => x.len(),
+      ScalarUntypedView::i16(ref x) => x.len(),
+      ScalarUntypedView::i32(ref x) => x.len(),
+      ScalarUntypedView::i8_normalized(ref x) => x.len(),
+      ScalarUntypedView::i16_normalized(ref x) => x.len(),
+      ScalarUntypedView::i32_normalized(ref x) => x.len()
+    };
+  }
+
   pub fn get_scalar_value(&self, i: usize) -> ScalarValue {
     return match *self {
       ScalarUntypedView::f16(ref x) => ScalarValue::f16(x[i]),
@@ -98,6 +117,25 @@ pub enum UntypedView<'a> {
 }
 
 impl<'a> UntypedView<'a> {
+  pub fn len(&self) -> usize {
+    return match *self {
+      UntypedView::f16(ref x) => x.len(),
+      UntypedView::f32(ref x) => x.len(),
+      UntypedView::u8(ref x) => x.len(),
+      UntypedView::u16(ref x) => x.len(),
+      UntypedView::u32(ref x) => x.len(),
+      UntypedView::u8_normalized(ref x) => x.len(),
+      UntypedView::u16_normalized(ref x) => x.len(),
+      UntypedView::u32_normalized(ref x) => x.len(),
+      UntypedView::i8(ref x) => x.len(),
+      UntypedView::i16(ref x) => x.len(),
+      UntypedView::i32(ref x) => x.len(),
+      UntypedView::i8_normalized(ref x) => x.len(),
+      UntypedView::i16_normalized(ref x) => x.len(),
+      UntypedView::i32_normalized(ref x) => x.len()
+    };
+  }
+
   pub fn get_vector_value(&self, i: usize) -> Vec<ScalarValue> {
     return match *self {
       UntypedView::f16(ref x) => x[i].iter().map(|v| ScalarValue::f16(*v)).collect(),

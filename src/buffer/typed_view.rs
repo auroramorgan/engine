@@ -34,6 +34,10 @@ impl<'a, T: 'a> ScalarTypedView<'a, T> {
       data: unsafe { mem::transmute(&view[..]) }
     };
   }
+
+  pub fn len(&self) -> usize {
+    return self.length;
+  }
 }
 
 impl<'a, T: 'a> ops::Index<usize> for ScalarTypedView<'a, T> {
@@ -58,6 +62,10 @@ impl<'a, T: 'a> TypedView<'a, T> {
       width: width,
       scalar_view: ScalarTypedView::new(name, view, offset, stride, length)
     };
+  }
+
+  pub fn len(&self) -> usize {
+    return self.scalar_view.length;
   }
 }
 
