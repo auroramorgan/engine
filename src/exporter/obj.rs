@@ -1,19 +1,8 @@
-use std::io::{Cursor, Seek, SeekFrom};
-use std::cmp;
-
-use byteorder::{LittleEndian, ReadBytesExt};
-
 use mesh;
 use asset;
 use model;
 
 use vertex;
-
-extern {
-  /// The `llvm.convert.from.fp16.f64` intrinsic.
-  #[link_name = "llvm.convert.from.fp16.f64"]
-  pub fn convert_from_fp16_f64(a: i16) -> f64;
-}
 
 pub fn export(asset: &asset::Asset) -> Vec<(String, String)> {
   let mut files = Vec::new();
@@ -47,36 +36,17 @@ pub fn export_model(model: &model::Model) -> Vec<(String, String)> {
 }
 
 fn write(prefix: &str, name: vertex::AttributeName, max_elements: usize, mesh: &mesh::Mesh, result: &mut String) -> bool {
-  let attribute = match mesh.attribute_for(&name) {
-    Some(s) => s, None => return false
-  };
+  if let Some(view) = mesh.untyped_view_for(&name) {
+    for i in 0 .. view.len() {
+      let value: Vec<String> = view.get_f32(i).iter().take(max_elements).map(|x| format!("{}", x)).collect();
 
-  let vertex_buffer = &mesh.buffers[attribute.buffer_index];
-  let mut cursor = Cursor::new(vertex_buffer.as_slice());
-
-  cursor.seek(SeekFrom::Current(attribute.offset as i64)).unwrap();
-
-  let elements = cmp::min(attribute.format.elements(), max_elements);
-
-  let stride = &mesh.descriptor.layouts[attribute.buffer_index].stride;
-
-  for i in 0 .. mesh.vertex_count {
-    cursor.seek(SeekFrom::Start((stride * i + attribute.offset) as u64)).unwrap();
-
-    result.push_str(prefix);
-    for _ in 0 .. elements {
-      let value = match attribute.format.scalar() {
-        vertex::Scalar::f16 => unsafe { convert_from_fp16_f64(cursor.read_i16::<LittleEndian>().unwrap()) },
-        vertex::Scalar::i16 => cursor.read_i16::<LittleEndian>().unwrap() as f64,
-        _ => panic!("Unknown ty when exporting .obj")
-      };
-
-      result.push_str(format!(" {}", value).as_str());
+      result.push_str(format!("{} {}\n", prefix, value.join(" ")).as_str());
     }
-    result.push_str("\n");
+
+    return true;
   }
 
-  return true;
+  return false;
 }
 
 fn write_faces(textures_written: bool, normals_written: bool, submesh: &mesh::Submesh, result: &mut String) {
