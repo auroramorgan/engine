@@ -3,7 +3,7 @@ use std::sync::Arc;
 use index;
 use vertex;
 
-use buffer::{BufferView, TypedView};
+use buffer::{BufferView, ScalarTypedView};
 
 #[derive(Debug, Clone)]
 pub struct Submesh {
@@ -54,14 +54,14 @@ impl<'a> Iterator for FaceIterator<'a> {
 
     match self.submesh.index_format {
       index::Format::u16 => {
-        let view = TypedView::<u16>::new(None, &self.submesh.view, 0, 0, self.submesh.index_count);
+        let view = ScalarTypedView::<u16>::new(None, &self.submesh.view, 0, 0, self.submesh.index_count);
 
         for i in 0 .. indices.len() {
           indices[i] = view[indices[i]] as usize
         }
       }
       index::Format::u32 => {
-        let view = TypedView::<u32>::new(None, &self.submesh.view, 0, 0, self.submesh.index_count);
+        let view = ScalarTypedView::<u32>::new(None, &self.submesh.view, 0, 0, self.submesh.index_count);
 
         for i in 0 .. indices.len() {
           indices[i] = view[indices[i]] as usize
