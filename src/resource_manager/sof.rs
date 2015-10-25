@@ -43,14 +43,21 @@ impl Hull {
 }
 
 pub struct Manager {
-  data: SofData
+  manager: Arc<resource_manager::ResourceManager>,
+  data: Option<SofData>
 }
 
 static SOF_PATH: &'static str = "res:/dx9/model/spaceobjectfactory/data.red";
 
 impl Manager {
   pub fn new(manager: Arc<resource_manager::ResourceManager>) -> Manager {
-    let data = manager.load(SOF_PATH).unwrap();
+    return Manager { manager: manager, data: None };
+  }
+
+  fn initialize(&mut self) {
+    if let Some(_) = self.data { return };
+
+    let data = self.manager.load(SOF_PATH).unwrap();
 
     let string = match *data {
       resource_manager::Resource::Binary(ref s) => s.clone(),
@@ -60,22 +67,34 @@ impl Manager {
     let mut json = String::new();
 
     for e in EventReader::new(io::Cursor::new(&string[..])) {
-        match e {
-            Err(e) => panic!("I/O Error while reading from memory? {:?}", e),
-            Ok(XmlEvent::Characters(s)) => json.push_str(s.as_str()),
-            _ => ()
-        }
+      match e {
+        Err(e) => panic!("I/O Error while reading from memory? {:?}", e),
+        Ok(XmlEvent::Characters(s)) => json.push_str(s.as_str()),
+        _ => ()
+      }
     }
 
-    return Manager { data: json::decode(json.as_str()).unwrap() };
+    self.data = Some(json::decode(json.as_str()).unwrap());
   }
 
-  pub fn hulls<'a>(&'a self) -> Vec<&'a str> {
-    return self.data.hull.keys().map(|x| x.as_str()).collect::<Vec<&'a str>>()
+  pub fn hulls<'a>(&'a mut self) -> Vec<&'a str> {
+    return match self.data {
+      Some(ref data) => data.hull.keys().map(|x| x.as_str()).collect::<Vec<&'a str>>(),
+      None => {
+        self.initialize();
+        self.hulls()
+      }
+    };
   }
 
-  pub fn load_hull<'a>(&'a self, name: &str) -> Option<&'a Hull> {
-    return self.data.hull.get(name);
+  pub fn load_hull<'a>(&'a mut self, name: &str) -> Option<&'a Hull> {
+    return match self.data {
+      Some(ref data) => data.hull.get(name),
+      None => {
+        self.initialize();
+        self.load_hull(name)
+      }
+    };
   }
 }
 

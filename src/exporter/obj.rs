@@ -4,19 +4,19 @@ use model;
 
 use vertex;
 
-pub fn export(asset: &asset::Asset) -> Vec<(String, String)> {
+pub fn export(asset: &asset::Asset) -> Vec<(String, Vec<u8>)> {
   let mut files = Vec::new();
 
   for object in &asset.objects {
     match object {
-      &asset::Object::Model(ref m) => files.push_all(export_model(m).as_slice())
+      &asset::Object::Model(ref m) => files.push(export_model(m))
     }
   }
 
   return files;
 }
 
-pub fn export_model(model: &model::Model) -> Vec<(String, String)> {
+pub fn export_model(model: &model::Model) -> (String, Vec<u8>) {
   let mut result = String::new();
 
   let mesh = &model.mesh;
@@ -32,7 +32,7 @@ pub fn export_model(model: &model::Model) -> Vec<(String, String)> {
     write_faces(textures_written, normals_written, &submesh, &mut result);
   }
 
-  return vec![(mesh.name.clone() + ".obj", result)];
+  return (mesh.name.clone() + ".obj", result.into_bytes());
 }
 
 fn write(prefix: &str, name: vertex::AttributeName, max_elements: usize, mesh: &mesh::Mesh, result: &mut String) -> bool {

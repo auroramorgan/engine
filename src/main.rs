@@ -12,7 +12,7 @@ use std::sync::Arc;
 fn main() {
   let resource_manager = engine::resource_manager::ResourceManager::default();
 
-  let sof = engine::resource_manager::sof::Manager::new(resource_manager.clone());
+  let mut sof = engine::resource_manager::sof::Manager::new(resource_manager.clone());
 
   let args: Vec<String> = env::args().collect();
 
@@ -22,14 +22,14 @@ fn main() {
     },
     "export" => {
       for i in 3 .. args.len() {
-        export(&sof, resource_manager.clone(), &args[i], &args[2]);
+        export(&mut sof, resource_manager.clone(), &args[i], &args[2]);
       }
     }
     cmd => panic!("Unknown command {}", cmd)
   }
 }
 
-fn export(sof: &engine::resource_manager::sof::Manager, resource_manager: Arc<engine::resource_manager::ResourceManager>, arg: &String, destination: &String) {
+fn export(sof: &mut engine::resource_manager::sof::Manager, resource_manager: Arc<engine::resource_manager::ResourceManager>, arg: &String, destination: &String) {
   let geometry_path = if arg.starts_with("res:/") {
     arg.as_str()
   } else {
@@ -60,6 +60,6 @@ fn export(sof: &engine::resource_manager::sof::Manager, resource_manager: Arc<en
 
     let mut f = fs::File::create(filename).unwrap();
 
-    f.write_all(obj.as_bytes()).unwrap();
+    f.write_all(obj.as_slice()).unwrap();
   }
 }
