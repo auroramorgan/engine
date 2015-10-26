@@ -36,6 +36,15 @@ impl ScalarValue {
       ScalarValue::i32_normalized(x) => (x as f32 / std::i32::MAX as f32).max(-1.0)
     };
   }
+
+  pub fn to_usize(&self) -> usize {
+    return match *self {
+      ScalarValue::u8(x) => x as usize,
+      ScalarValue::u16(x) => x as usize,
+      ScalarValue::u32(x) => x as usize,
+      _ => panic!("Unsupported type conversion")
+    };
+  }
 }
 
 pub enum ScalarUntypedView<'a> {
@@ -96,6 +105,10 @@ impl<'a> ScalarUntypedView<'a> {
 
   pub fn get_f32(&self, i: usize) -> f32 {
     return self.get_scalar_value(i).to_f32();
+  }
+
+  pub fn get_usize(&self, i: usize) -> usize {
+    return self.get_scalar_value(i).to_usize();
   }
 }
 

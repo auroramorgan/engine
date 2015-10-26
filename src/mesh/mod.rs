@@ -4,7 +4,7 @@ use index;
 use vertex;
 use vertex::{Format, Scalar};
 
-use buffer::{BufferView, TypedView, ScalarTypedView, UntypedView};
+use buffer::{BufferView, TypedView, ScalarTypedView, UntypedView, ScalarUntypedView};
 
 #[derive(Debug, Clone)]
 pub struct Submesh {
@@ -17,12 +17,24 @@ pub struct Submesh {
 
 impl Submesh {
   pub fn faces<'a>(&'a self) -> FaceIterator<'a> {
-    return FaceIterator { submesh: self, current: 0 };
+    return FaceIterator { view: self.untyped_view(), geometry: self.geometry, current: 0 };
+  }
+  
+  pub fn untyped_view<'a>(&'a self) -> ScalarUntypedView<'a> {
+    let view = &self.view;
+    let length = self.index_count;
+
+    return match self.index_format {
+      index::Format::u16 => ScalarUntypedView::u16(ScalarTypedView::<u16>::new(None, view, 0, 0, length)),
+      index::Format::u32 => ScalarUntypedView::u32(ScalarTypedView::<u32>::new(None, view, 0, 0, length))
+    };
   }
 }
 
 pub struct FaceIterator<'a> {
-  submesh: &'a Submesh,
+  view: ScalarUntypedView<'a>,
+  geometry: index::Geometry,
+
   current: usize
 }
 
@@ -34,7 +46,7 @@ impl<'a> Iterator for FaceIterator<'a> {
       return None;
     }
 
-    let mut indices = match self.submesh.geometry {
+    let mut indices = match self.geometry {
       index::Geometry::Points => {
         let offset = self.current;
         vec![offset + 0]
@@ -53,21 +65,8 @@ impl<'a> Iterator for FaceIterator<'a> {
       }
     };
 
-    match self.submesh.index_format {
-      index::Format::u16 => {
-        let view = ScalarTypedView::<u16>::new(None, &self.submesh.view, 0, 0, self.submesh.index_count);
-
-        for i in 0 .. indices.len() {
-          indices[i] = view[indices[i]] as usize
-        }
-      }
-      index::Format::u32 => {
-        let view = ScalarTypedView::<u32>::new(None, &self.submesh.view, 0, 0, self.submesh.index_count);
-
-        for i in 0 .. indices.len() {
-          indices[i] = view[indices[i]] as usize
-        }
-      }
+    for i in 0 .. indices.len() {
+      indices[i] = self.view.get_usize(indices[i]);
     }
 
     self.current += 1;
@@ -85,9 +84,9 @@ impl<'a> Iterator for FaceIterator<'a> {
 impl<'a> ExactSizeIterator for FaceIterator<'a> {
   #[inline(always)]
   fn len(&self) -> usize {
-    let index_count = self.submesh.index_count;
+    let index_count = self.view.len();
 
-    return match self.submesh.geometry {
+    return match self.geometry {
       index::Geometry::Points => index_count,
       index::Geometry::Lines => index_count - 1,
       index::Geometry::TriangleStrips => index_count - 2,
