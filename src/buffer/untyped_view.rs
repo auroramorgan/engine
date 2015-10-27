@@ -2,7 +2,9 @@
 
 use std;
 
-use buffer::{TypedView, ScalarTypedView};
+use buffer::{BufferView, TypedView, ScalarTypedView};
+
+use vertex;
 
 extern {
   #[link_name = "llvm.convert.from.fp16.f32"]
@@ -130,6 +132,25 @@ pub enum UntypedView<'a> {
 }
 
 impl<'a> UntypedView<'a> {
+  pub fn new(view: &'a BufferView, format: vertex::Format, offset: usize, stride: usize, length: usize) -> UntypedView<'a> {
+    return match format {
+      vertex::Format(vertex::Scalar::f16, width) => UntypedView::f16(TypedView::<i16>::new(None, view, width, offset, stride, length)),
+      vertex::Format(vertex::Scalar::f32, width) => UntypedView::f32(TypedView::<f32>::new(None, view, width, offset, stride, length)),
+      vertex::Format(vertex::Scalar::u8, width) => UntypedView::u8(TypedView::<u8>::new(None, view, width, offset, stride, length)),
+      vertex::Format(vertex::Scalar::u16, width) => UntypedView::u16(TypedView::<u16>::new(None, view, width, offset, stride, length)),
+      vertex::Format(vertex::Scalar::u32, width) => UntypedView::u32(TypedView::<u32>::new(None, view, width, offset, stride, length)),
+      vertex::Format(vertex::Scalar::u8_normalized, width) => UntypedView::u8_normalized(TypedView::<u8>::new(None, view, width, offset, stride, length)),
+      vertex::Format(vertex::Scalar::u16_normalized, width) => UntypedView::u16_normalized(TypedView::<u16>::new(None, view, width, offset, stride, length)),
+      vertex::Format(vertex::Scalar::u32_normalized, width) => UntypedView::u32_normalized(TypedView::<u32>::new(None, view, width, offset, stride, length)),
+      vertex::Format(vertex::Scalar::i8, width) => UntypedView::i8(TypedView::<i8>::new(None, view, width, offset, stride, length)),
+      vertex::Format(vertex::Scalar::i16, width) => UntypedView::i16(TypedView::<i16>::new(None, view, width, offset, stride, length)),
+      vertex::Format(vertex::Scalar::i32, width) => UntypedView::i32(TypedView::<i32>::new(None, view, width, offset, stride, length)),
+      vertex::Format(vertex::Scalar::i8_normalized, width) => UntypedView::i8_normalized(TypedView::<i8>::new(None, view, width, offset, stride, length)),
+      vertex::Format(vertex::Scalar::i16_normalized, width) => UntypedView::i16_normalized(TypedView::<i16>::new(None, view, width, offset, stride, length)),
+      vertex::Format(vertex::Scalar::i32_normalized, width) => UntypedView::i32_normalized(TypedView::<i32>::new(None, view, width, offset, stride, length)),
+    };
+  }
+  
   pub fn len(&self) -> usize {
     return match *self {
       UntypedView::f16(ref x) => x.len(),

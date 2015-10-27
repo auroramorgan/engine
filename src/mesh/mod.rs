@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use index;
 use vertex;
-use vertex::{Format, Scalar};
+use vertex::Format;
 
-use buffer::{BufferView, TypedView, ScalarTypedView, UntypedView, ScalarUntypedView};
+use buffer::{BufferView, ScalarTypedView, UntypedView, ScalarUntypedView};
 
 #[derive(Debug, Clone)]
 pub struct Submesh {
@@ -118,22 +118,7 @@ impl Mesh {
       let stride = self.descriptor.layouts[attribute.buffer_index].stride;
       let length = self.vertex_count;
 
-      return Some(match attribute.format {
-        Format(Scalar::f16, width) => UntypedView::f16(TypedView::<i16>::new(None, view, width, offset, stride, length)),
-        Format(Scalar::f32, width) => UntypedView::f32(TypedView::<f32>::new(None, view, width, offset, stride, length)),
-        Format(Scalar::u8, width) => UntypedView::u8(TypedView::<u8>::new(None, view, width, offset, stride, length)),
-        Format(Scalar::u16, width) => UntypedView::u16(TypedView::<u16>::new(None, view, width, offset, stride, length)),
-        Format(Scalar::u32, width) => UntypedView::u32(TypedView::<u32>::new(None, view, width, offset, stride, length)),
-        Format(Scalar::u8_normalized, width) => UntypedView::u8_normalized(TypedView::<u8>::new(None, view, width, offset, stride, length)),
-        Format(Scalar::u16_normalized, width) => UntypedView::u16_normalized(TypedView::<u16>::new(None, view, width, offset, stride, length)),
-        Format(Scalar::u32_normalized, width) => UntypedView::u32_normalized(TypedView::<u32>::new(None, view, width, offset, stride, length)),
-        Format(Scalar::i8, width) => UntypedView::i8(TypedView::<i8>::new(None, view, width, offset, stride, length)),
-        Format(Scalar::i16, width) => UntypedView::i16(TypedView::<i16>::new(None, view, width, offset, stride, length)),
-        Format(Scalar::i32, width) => UntypedView::i32(TypedView::<i32>::new(None, view, width, offset, stride, length)),
-        Format(Scalar::i8_normalized, width) => UntypedView::i8_normalized(TypedView::<i8>::new(None, view, width, offset, stride, length)),
-        Format(Scalar::i16_normalized, width) => UntypedView::i16_normalized(TypedView::<i16>::new(None, view, width, offset, stride, length)),
-        Format(Scalar::i32_normalized, width) => UntypedView::i32_normalized(TypedView::<i32>::new(None, view, width, offset, stride, length)),
-      });
+      return Some(UntypedView::new(view, attribute.format, offset, stride, length));
     }
 
     return None;
