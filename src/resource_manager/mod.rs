@@ -35,6 +35,7 @@ impl ResourceManager {
     let mut resource_manager = ResourceManager::new();
 
     resource_manager.insert("res", Box::new(resource_loaders::cdn::Loader::default()));
+    resource_manager.insert("file", Box::new(resource_loaders::file::Loader::default()));
 
     return Arc::new(resource_manager);
   }

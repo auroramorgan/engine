@@ -54,20 +54,14 @@ impl Loader {
       return None;
     }
 
-    let extension = path::Path::new(path).extension().map(|x| x.to_str().unwrap()).unwrap_or("");
+    let mime = resource_loaders::path_to_mime(path).map(|x| x.to_owned()).unwrap_or_else(|| {
+      let headers = response.headers.clone();
 
-    let mime = match extension {
-      "wbg" => "application/x-ccp-wbg".to_owned(),
-      "red" => "application/x-ccp-red".to_owned(),
-      _ => {
-        let headers = response.headers.clone();
-
-        match headers.get::<hyper::header::ContentType>() {
-          Some(&hyper::header::ContentType(ref s)) => s.clone(),
-          None => "application/octet-stream".parse().unwrap()
-        }.to_string()
-      }
-    };
+      match headers.get::<hyper::header::ContentType>() {
+        Some(&hyper::header::ContentType(ref s)) => s.clone(),
+        None => "application/octet-stream".parse().unwrap()
+      }.to_string()
+    });
 
     let data = load_from_stream(&mut response);
 

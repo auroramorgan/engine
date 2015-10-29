@@ -30,7 +30,7 @@ fn main() {
 }
 
 fn export(sof: &mut engine::resource_manager::sof::Manager, resource_manager: Arc<engine::resource_manager::ResourceManager>, arg: &String, destination: &String) {
-  let geometry_path = if arg.starts_with("res:/") {
+  let geometry_path = if arg.contains(":/") {
     arg.as_str()
   } else {
     match sof.load_hull(arg.as_str()) {
