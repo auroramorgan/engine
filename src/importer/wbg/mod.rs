@@ -56,7 +56,7 @@ pub fn import(input: Arc<Buffer>) -> Option<asset::Asset> {
         name: name.clone(),
         mesh: mesh.clone(),
         blend_shapes: blend_shapes.clone(),
-        skeleton: skeleton.clone()
+        skeleton: Some(skeleton.clone())
       })
     }).collect()
   }).collect();

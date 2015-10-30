@@ -101,6 +101,9 @@ fn to_resource(mime: String, data: Arc<buffer::Buffer>) -> Arc<Resource> {
     "application/x-ccp-wbg" => {
       Resource::Asset(importer::wbg::import(data).unwrap())
     }
+    "application/x-wavefront-obj" => {
+      Resource::Asset(importer::obj::import(data).unwrap())
+    }
     _ => {
       println!("Unknown MIME {:?}, interpreting as Binary", mime);
       Resource::Binary(data)

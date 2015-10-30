@@ -28,6 +28,7 @@ pub mod animation {
 }
 
 pub mod importer {
+  pub mod obj;
   pub mod wbg;
 }
 

@@ -108,7 +108,7 @@ mod tests {
   fn test_sof_manager() {
     let resource_manager = resource_manager::ResourceManager::default();
 
-    let manager = Manager::new(resource_manager);
+    let mut manager = Manager::new(resource_manager);
 
     assert_eq!(manager.load_hull("ai2_t2"), Some(&Hull {
       name: "ai2_t2".to_owned(),
